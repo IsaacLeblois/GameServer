@@ -324,7 +324,7 @@
     const searchingServer = document.getElementById('searchingServer');
 
     // Abrir conexión WS
-    const ws = new WebSocket('ws://localhost:8080');
+    const ws = new WebSocket('ws://gameserver-z6km.onrender.com/');
 
     // Mostrar mensaje "buscando servidor" al abrir conexión
     ws.onopen = () => {
