@@ -1,4 +1,3 @@
-```markdown
 # 🕹️ Futuristic Multiplayer Demo – Obsidian Portfolio
 
 This is a **real-time multiplayer demo** built for the Obsidian portfolio. It simulates multiple users controlling glowing blocks on a shared futuristic grid using **WebSockets** and **HTML5 Canvas**. The interface features a cyberpunk aesthetic, smooth animations, and live interaction between connected clients.
@@ -41,4 +40,3 @@ When a key is pressed, the corresponding direction is highlighted in the floatin
 
 Check out the live version:  
 👉 [obsserver.netlify.app](https://obsserver.netlify.app)
-```
