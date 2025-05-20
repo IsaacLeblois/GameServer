@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Obsidian Server</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%; width: 100%;
+      background: #0a0a0a;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #00ffff;
+      user-select: none;
+    }
+
+    canvas {
+      display: block;
+      background: #111;
+      border: 3px solid #00ffff;
+      box-shadow:
+        0 0 8px #00ffffaa,
+        0 0 20px #00ffff88,
+        inset 0 0 10px #00ffffaa;
+      border-radius: 8px;
+    }
+
+    /* Botón info - centrado abajo */
+    #infoButton {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #00ffffaa, #007777cc);
+      border: 2px solid #00ffff;
+      border-radius: 12px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      color: #00ffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow:
+        0 0 6px #00ffffcc,
+        0 0 12px #00ffff99;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+      z-index: 1000;
+      user-select: none;
+    }
+    #infoButton:hover {
+      background: linear-gradient(135deg, #00ffffff, #00bbbbff);
+      box-shadow:
+        0 0 14px #00ffffee,
+        0 0 26px #00ffffdd;
+    }
+    #infoButton svg {
+      fill: #00ffff;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Modal backdrop */
+    #infoModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1500;
+    }
+
+    /* Modal content */
+    #infoModalContent {
+      background: #111;
+      border: 2px solid #00ffff;
+      box-shadow:
+        0 0 15px #00ffffcc,
+        inset 0 0 10px #00ffffaa;
+      border-radius: 16px;
+      padding: 24px 32px;
+      width: 320px;
+      max-width: 90vw;
+      color: #00ffff;
+      font-family: monospace;
+      position: relative;
+      text-align: center;
+      user-select: text;
+
+      /* Animación: sale del botón */
+      transform-origin: bottom center;
+      animation: modalPopUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      opacity: 0;
+    }
+    #infoModal.show #infoModalContent {
+      opacity: 1;
+      animation-play-state: running;
+    }
+
+    @keyframes modalPopUp {
+      0% {
+        opacity: 0;
+        transform: translateY(40px) scale(0.8);
+        box-shadow: 0 0 0 transparent, inset 0 0 0 transparent;
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        box-shadow:
+          0 0 15px #00ffffcc,
+          inset 0 0 10px #00ffffaa;
+      }
+    }
+
+    /* Close button */
+    #closeModal {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      cursor: pointer;
+      font-size: 22px;
+      font-weight: bold;
+      color: #00ffff;
+      user-select: none;
+      transition: color 0.3s ease;
+    }
+    #closeModal:hover {
+      color: #00bbbb;
+    }
+
+    /* Mensaje "Buscando servidor" arriba, centrado */
+    #searchingServer {
+      position: fixed;
+      bottom: 120px; /* mismo espacio del botón + distancia */
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: monospace;
+      color: #ff0000;
+      font-weight: 700;
+      font-size: 16px;
+      text-shadow:
+        0 0 8px #ff0000aa,
+        0 0 20px #ff0000cc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      z-index: 1100;
+    }
+
+    /* Icono neon estilo */
+    #searchingServer svg {
+      width: 20px;
+      height: 20px;
+      stroke: #ff0000;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter:
+        drop-shadow(0 0 3px #ff0000aa)
+        drop-shadow(0 0 5px #ff0000cc);
+      animation: spin 1.5s linear infinite;
+    }
+
+    /* Animación para el ícono girando */
+    @keyframes spin {
+      from { transform: rotate(0deg);}
+      to { transform: rotate(360deg);}
+    }
+
+    /* Animación puntos cargando */
+    #loadingDots span {
+      display: inline-block;
+      color: #ff0000;
+      text-shadow:
+        0 0 5px #ff0000aa,
+        0 0 10px #ff0000cc;
+      animation: dotsPulse 1.5s infinite ease-in-out;
+      font-weight: 900;
+      font-size: 20px;
+    }
+    #loadingDots span:nth-child(1) {
+      animation-delay: 0s;
+    }
+    #loadingDots span:nth-child(2) {
+      animation-delay: 0.3s;
+    }
+    #loadingDots span:nth-child(3) {
+      animation-delay: 0.6s;
+    }
+    @keyframes dotsPulse {
+      0%, 80%, 100% {
+        opacity: 0.2;
+      }
+      40% {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+    <div id="gameControls" aria-label="Controles del juego" role="region" style="
+    position: fixed;
+    bottom: 60px;
+    left: 60px;
+    color: #00ffff;
+    font-family: 'Segoe UI Mono', 'Courier New', monospace;
+    font-size: 16px;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-shadow:
+        0 0 5px #00ffff,
+        0 0 10px #00ffffaa;
+    z-index: 3000;
+    letter-spacing: 1.2px;
+    font-weight: 600;
+    ">
+    <div id="ctrlUp">⬆ Arriba</div>
+    <div id="ctrlDown">⬇ Abajo</div>
+    <div id="ctrlLeft">⬅ Izquierda</div>
+    <div id="ctrlRight">➡ Derecha</div>
+    </div>
+
+  <button id="infoButton" aria-label="Mostrar información">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="10" stroke="none" />
+      <rect x="11" y="10" width="2" height="6" rx="1" ry="1"/>
+      <rect x="11" y="6" width="2" height="2" rx="1" ry="1"/>
+    </svg>
+    Información
+  </button>
+
+  <!-- Mensaje buscando servidor -->
+  <div id="searchingServer" style="display:none" aria-live="polite" aria-atomic="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="10" stroke="#ff0000" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M12 6v6l4 2" stroke="#ff0000" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Buscando servidor<span id="loadingDots"><span>.</span><span>.</span><span>.</span></span>
+  </div>
+
+  <div id="infoModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
+    <div id="infoModalContent" tabindex="0">
+      <div id="closeModal" role="button" aria-label="Cerrar información" tabindex="0">&times;</div>
+      <h2 id="modalTitle">Información</h2>
+      <p id="modalDesc">Esta es una demostración que simula el movimiento de cuadros en tiempo real.</p>
+      <p>Usa las flechas para mover tu cuadro azul. Los cuadros rojos representan otros clientes conectados.</p>
+      <hr style="border-color: rgba(0,255,255,0.2); margin: 12px 0;">
+      <p><strong>Servidor de prueba y portafolio</strong></p>
+      <p>Este servidor WebSocket es una prueba técnica desarrollada por la empresa <strong>Obsidian</strong> para su portafolio.</p>
+      <p>Permite conectar múltiples clientes simultáneamente a un mismo servidor, facilitando comunicaciones en tiempo real, útil para videojuegos, aplicaciones o sistemas distribuidos que requieren conexiones rápidas.</p>
+      <p>© 2025 Obsidian. Todos los derechos reservados.</p>
+    </div>
+  </div>
+
+    <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    let myId = null;
+    let myName = null;
+    let players = {};
+    let smoothPlayers = {};
+
+    function askName() {
+        let name = prompt("Ingresa tu nombre (máx 12 caracteres):", "");
+        if (!name) name = "Anon";
+        if(name.length > 12) name = name.substring(0,12);
+        return name;
+    }
+
+    myName = askName();
+
+    function resize() {
+        canvas.width = window.innerWidth - 40;
+        canvas.height = window.innerHeight - 40;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function drawWatermark() {
+        const text = "© 2025 Obsidian. Todos los derechos reservados.";
+        ctx.save();
+        ctx.font = '20px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.07)';
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+        ctx.restore();
+    }
+
+    function drawGrid() {
+        const step = 40;
+        ctx.strokeStyle = 'rgba(0,255,255,0.1)';
+        ctx.lineWidth = 1;
+        for(let x = 0; x <= canvas.width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+        }
+        for(let y = 0; y <= canvas.height; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+        }
+    }
+
+    // Referencia al mensaje buscando servidor
+    const searchingServer = document.getElementById('searchingServer');
+
+    // Abrir conexión WS
+    const ws = new WebSocket('ws://localhost:8080');
+
+    // Mostrar mensaje "buscando servidor" al abrir conexión
+    ws.onopen = () => {
+        console.log('Conectado al servidor WebSocket');
+        searchingServer.style.display = 'flex'; // Mostrar mensaje hasta recibir init
+        ws.send(JSON.stringify({ type: 'setName', name: myName }));
+    };
+
+    ws.onerror = (e) => {
+        console.error('Error WS:', e);
+        searchingServer.style.display = 'flex'; // Mantener mensaje en error
+    };
+
+    ws.onclose = () => {
+        console.log('Conexión WS cerrada');
+        searchingServer.style.display = 'flex'; // Mostrar mensaje si se desconecta
+    };
+
+    ws.onmessage = (message) => {
+        const data = JSON.parse(message.data);
+        if(data.type === 'init') {
+        myId = data.id;
+        players = data.players;
+        searchingServer.style.display = 'none'; // Ocultar mensaje al recibir init
+        } else if(data.type === 'update') {
+        players = data.players;
+        }
+    };
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawWatermark();
+        drawGrid();
+
+        for(let id in players) {
+        if(!smoothPlayers[id]) smoothPlayers[id] = { ...players[id] };
+        else {
+            smoothPlayers[id].x += (players[id].x - smoothPlayers[id].x) * 0.2;
+            smoothPlayers[id].y += (players[id].y - smoothPlayers[id].y) * 0.2;
+        }
+
+        const p = smoothPlayers[id];
+        const name = players[id].name || id.substring(0,4);
+
+        ctx.fillStyle = id === myId ? '#00ffff' : '#ff00aa';
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = 15;
+        ctx.fillRect(p.x, p.y, 24, 24);
+
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#00ffff';
+        ctx.font = '15px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(name, p.x + 12, p.y + 40);
+        ctx.shadowBlur = 0;
+        }
+
+        requestAnimationFrame(draw);
+    }
+
+    draw();
+
+    window.addEventListener('keydown', (e) => {
+    let dx = 0, dy = 0;
+    let controlId = null;
+
+    if(e.key === 'ArrowUp') {
+        dy = -5;
+        controlId = 'ctrlUp';
+    }
+    else if(e.key === 'ArrowDown') {
+        dy = 5;
+        controlId = 'ctrlDown';
+    }
+    else if(e.key === 'ArrowLeft') {
+        dx = -5;
+        controlId = 'ctrlLeft';
+    }
+    else if(e.key === 'ArrowRight') {
+        dx = 5;
+        controlId = 'ctrlRight';
+    }
+
+    if(dx !== 0 || dy !== 0) {
+        ws.send(JSON.stringify({ type: 'move', dx, dy }));
+
+        if(controlId) {
+        const ctrlElem = document.getElementById(controlId);
+        if(ctrlElem) {
+            ctrlElem.style.color = '#ff0000';
+            ctrlElem.style.textShadow = '0 0 5px #ff0000, 0 0 10px #ff0000aa';
+
+            setTimeout(() => {
+            ctrlElem.style.color = '#00ffff';
+            ctrlElem.style.textShadow = '0 0 5px #00ffff, 0 0 10px #00ffffaa';
+            }, 200);
+        }
+        }
+    }
+    });
+
+    // Modal funcionalidad
+    const infoBtn = document.getElementById('infoButton');
+    const modal = document.getElementById('infoModal');
+    const modalContent = document.getElementById('infoModalContent');
+    const closeModalBtn = document.getElementById('closeModal');
+
+    infoBtn.addEventListener('click', () => {
+        modal.style.display = 'flex';
+        modal.classList.add('show');
+        modalContent.focus();
+    });
+
+    closeModalBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        infoBtn.focus();
+    });
+
+    modal.addEventListener('click', e => {
+        if(e.target === modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        infoBtn.focus();
+        }
+    });
+
+    window.addEventListener('keydown', e => {
+        if(e.key === 'Escape' && modal.style.display === 'flex') {
+        modal.style.display = 'none';
+        modal.classList.remove('show');
+        infoBtn.focus();
+        }
+    });
+    </script>
+
+</body>
+</html>
