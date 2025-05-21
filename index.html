@@ -442,16 +442,20 @@
         dx = 5;
         controlId = 'ctrlRight';
     }
-    else if (e.key === 't' || e.key === 'T') {
-      e.preventDefault();
+    else if ((e.key === 't' || e.key === 'T')) {
       const input = document.getElementById('chatBubbleInput');
+
+      // Si ya está visible, no hacer nada (deja que el usuario escriba)
+      if (input.style.display === 'block') return;
+
+      e.preventDefault();
 
       if (!myId || !smoothPlayers[myId]) return;
 
       const player = smoothPlayers[myId];
       const canvasRect = canvas.getBoundingClientRect();
 
-      // Ubicar el input arriba del jugador
+      // Posicionar el input justo arriba del jugador
       input.style.left = (canvasRect.left + player.x + 12) + 'px';
       input.style.top = (canvasRect.top + player.y - 10) + 'px';
       input.style.display = 'block';
