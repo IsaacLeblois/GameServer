@@ -210,6 +210,21 @@
 <body>
   <canvas id="game"></canvas>
 
+    <input type="text" id="chatBubbleInput" placeholder="Habla..." maxlength="50" style="
+    position: absolute;
+    display: none;
+    transform: translate(-50%, -100%);
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 2px solid #00ffff;
+    background: #111;
+    color: #00ffff;
+    font-family: monospace;
+    font-size: 14px;
+    z-index: 9999;
+    box-shadow: 0 0 6px #00ffffaa;
+    " />
+
     <div id="gameControls" aria-label="Controles del juego" role="region" style="
     position: fixed;
     bottom: 60px;
@@ -351,8 +366,19 @@
         searchingServer.style.display = 'none'; // Ocultar mensaje al recibir init
         } else if(data.type === 'update') {
         players = data.players;
+        } else if (data.type === 'say') {
+          if (players[data.id]) {
+            players[data.id].message = data.message;
+
+            // Borrar el mensaje luego de 4 segundos
+            setTimeout(() => {
+              if (players[data.id]) {
+                delete players[data.id].message;
+              }
+            }, 4000);
+          }
         }
-    };
+      };
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -369,6 +395,14 @@
 
         const p = smoothPlayers[id];
         const name = players[id].name || id.substring(0,4);
+        const msg = players[id].message;
+
+        if (msg) {
+          ctx.font = '13px monospace';
+          ctx.fillStyle = 'white';
+          ctx.textAlign = 'center';
+          ctx.fillText(msg, p.x + 12, p.y - 10);
+        }
 
         ctx.fillStyle = id === myId ? '#00ffff' : '#ff00aa';
         ctx.shadowColor = ctx.fillStyle;
@@ -408,6 +442,38 @@
         dx = 5;
         controlId = 'ctrlRight';
     }
+    else if (e.key === 't' || e.key === 'T') {
+      e.preventDefault();
+      const input = document.getElementById('chatBubbleInput');
+
+      if (!myId || !smoothPlayers[myId]) return;
+
+      const player = smoothPlayers[myId];
+      const canvasRect = canvas.getBoundingClientRect();
+
+      // Ubicar el input arriba del jugador
+      input.style.left = (canvasRect.left + player.x + 12) + 'px';
+      input.style.top = (canvasRect.top + player.y - 10) + 'px';
+      input.style.display = 'block';
+      input.value = '';
+      input.focus();
+    }
+
+    document.getElementById('chatBubbleInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const message = e.target.value.trim();
+        if (message !== '') {
+          ws.send(JSON.stringify({ type: 'say', message }));
+        }
+        e.target.value = '';
+        e.target.style.display = 'none';
+        canvas.focus();
+      } else if (e.key === 'Escape') {
+        e.target.value = '';
+        e.target.style.display = 'none';
+        canvas.focus();
+      }
+    });
 
     if(dx !== 0 || dy !== 0) {
         ws.send(JSON.stringify({ type: 'move', dx, dy }));
