@@ -247,6 +247,7 @@
     <div id="ctrlDown">⬇ Abajo</div>
     <div id="ctrlLeft">⬅ Izquierda</div>
     <div id="ctrlRight">➡ Derecha</div>
+    <div id="tKey">T Chat</div>
     </div>
 
   <button id="infoButton" aria-label="Mostrar información">
@@ -444,6 +445,7 @@
     }
     else if ((e.key === 't' || e.key === 'T')) {
       const input = document.getElementById('chatBubbleInput');
+      controlId = 'tKey';
 
       // Si ya está visible, no hacer nada (deja que el usuario escriba)
       if (input.style.display === 'block') return;
