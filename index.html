@@ -282,6 +282,16 @@
     </div>
   </div>
 
+  <div id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle" aria-describedby="nameModalDesc" style="display:flex;justify-content:center;align-items:center;position:fixed;top:0;left:0;right:0;bottom:0;z-index:2000;background:rgba(0,255,255,0.08);backdrop-filter:blur(10px);">
+    <div id="nameModalContent" tabindex="0" style="background:#111;border:2px solid #00ffff;box-shadow:0 0 15px #00ffffcc,inset 0 0 10px #00ffffaa;border-radius:16px;padding:24px 32px;width:320px;max-width:90vw;color:#00ffff;font-family:monospace;position:relative;text-align:center;user-select:text;transform-origin:bottom center;animation:modalPopUp 0.4s cubic-bezier(0.4,0,0.2,1) forwards;opacity:1;">
+      <h2 id="nameModalTitle">¿Cuál es tu nombre?</h2>
+      <p id="nameModalDesc">Ingresa tu nombre para jugar (máx 12 caracteres):</p>
+      <input id="nameInput" type="text" maxlength="12" autocomplete="off" style="margin:12px 0 18px 0;padding:7px 12px;border-radius:8px;border:2px solid #00ffff;background:#111;color:#00ffff;font-family:monospace;font-size:16px;box-shadow:0 0 6px #00ffffaa;width:90%;">
+      <br>
+      <button id="nameSubmit" style="background:linear-gradient(135deg,#00ffffaa,#007777cc);border:2px solid #00ffff;border-radius:12px;padding:8px 18px;cursor:pointer;font-weight:600;font-size:15px;color:#00ffff;box-shadow:0 0 6px #00ffffcc,0 0 12px #00ffff99;transition:background 0.3s ease,box-shadow 0.3s ease;">Entrar</button>
+    </div>
+  </div>
+
     <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
@@ -291,14 +301,77 @@
     let players = {};
     let smoothPlayers = {};
 
-    function askName() {
-        let name = prompt("Ingresa tu nombre (máx 12 caracteres):", "");
-        if (!name) name = "Anon";
-        if(name.length > 12) name = name.substring(0,12);
-        return name;
+    document.getElementById('game').style.display = 'none';
+    document.getElementById('gameControls').style.display = 'none';
+    document.getElementById('infoButton').style.display = 'none';
+
+    // Modal de nombre
+    const nameModal = document.getElementById('nameModal');
+    const nameInput = document.getElementById('nameInput');
+    const nameSubmit = document.getElementById('nameSubmit');
+
+    nameInput.focus();
+
+    let ws = null; // Declarar ws aquí para usarlo después
+
+    function finishNameInput() {
+      let name = nameInput.value.trim();
+      if (!name) name = "Anon";
+      if (name.length > 12) name = name.substring(0,12);
+      myName = name;
+
+      nameModal.style.display = 'none';
+      document.getElementById('game').style.display = '';
+      document.getElementById('gameControls').style.display = '';
+      document.getElementById('infoButton').style.display = '';
+
+      // SOLO aquí abrimos la conexión WebSocket
+      ws = new WebSocket('wss://gameserver-z6km.onrender.com/');
+
+      // El resto de la lógica de ws va aquí:
+      ws.onopen = () => {
+        console.log('Conectado al servidor WebSocket');
+        searchingServer.style.display = 'flex';
+        ws.send(JSON.stringify({ type: 'setName', name: myName }));
+      };
+
+      ws.onerror = (e) => {
+        console.error('Error WS:', e);
+        searchingServer.style.display = 'flex';
+      };
+
+      ws.onclose = () => {
+        console.log('Conexión WS cerrada');
+        searchingServer.style.display = 'flex';
+      };
+
+      ws.onmessage = (message) => {
+        const data = JSON.parse(message.data);
+        if(data.type === 'init') {
+          myId = data.id;
+          players = data.players;
+          searchingServer.style.display = 'none';
+        } else if(data.type === 'update') {
+          players = data.players;
+        } else if (data.type === 'say') {
+          if (players[data.id]) {
+            players[data.id].message = data.message;
+            setTimeout(() => {
+              if (players[data.id]) {
+                delete players[data.id].message;
+              }
+            }, 4000);
+          }
+        }
+      };
     }
 
-    myName = askName();
+    nameSubmit.addEventListener('click', finishNameInput);
+    nameInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        finishNameInput();
+      }
+    });
 
     function resize() {
         canvas.width = window.innerWidth - 40;
@@ -338,48 +411,6 @@
 
     // Referencia al mensaje buscando servidor
     const searchingServer = document.getElementById('searchingServer');
-
-    // Abrir conexión WS
-    const ws = new WebSocket('wss://gameserver-z6km.onrender.com/');
-
-    // Mostrar mensaje "buscando servidor" al abrir conexión
-    ws.onopen = () => {
-        console.log('Conectado al servidor WebSocket');
-        searchingServer.style.display = 'flex'; // Mostrar mensaje hasta recibir init
-        ws.send(JSON.stringify({ type: 'setName', name: myName }));
-    };
-
-    ws.onerror = (e) => {
-        console.error('Error WS:', e);
-        searchingServer.style.display = 'flex'; // Mantener mensaje en error
-    };
-
-    ws.onclose = () => {
-        console.log('Conexión WS cerrada');
-        searchingServer.style.display = 'flex'; // Mostrar mensaje si se desconecta
-    };
-
-    ws.onmessage = (message) => {
-        const data = JSON.parse(message.data);
-        if(data.type === 'init') {
-        myId = data.id;
-        players = data.players;
-        searchingServer.style.display = 'none'; // Ocultar mensaje al recibir init
-        } else if(data.type === 'update') {
-        players = data.players;
-        } else if (data.type === 'say') {
-          if (players[data.id]) {
-            players[data.id].message = data.message;
-
-            // Borrar el mensaje luego de 4 segundos
-            setTimeout(() => {
-              if (players[data.id]) {
-                delete players[data.id].message;
-              }
-            }, 4000);
-          }
-        }
-      };
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
