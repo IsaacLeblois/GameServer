@@ -121,7 +121,7 @@ wss.on('connection', function connection(ws) {
       }
       ws.send(JSON.stringify({ type: 'update', players: slimPlayers, bullets }));
     }
-  }, 100);
+  }, 15);
 
   ws.on('close', () => {
     delete players[id];
