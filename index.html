@@ -301,6 +301,19 @@
     let players = {};
     let smoothPlayers = {};
 
+    let aim = { x: 0, y: 0 }; // Posición de la mira relativa al jugador
+    const aimMaxDist = 60;    // Distancia máxima de la mira desde el jugador
+    let bullets = [];         // Array de balas (ahora sincronizadas con el servidor)
+
+    let heat = 0;                // Calor actual
+    const maxHeat = 100;         // Calor máximo
+    const heatPerShot = 34;      // Cuánto sube por disparo
+    const heatCooldown = 0.45;   // Cuánto baja por frame (ajusta para más/menos enfriamiento)
+    let canShoot = true;         // Si puede disparar
+    let lastShot = 0;            // Último disparo (para evitar spam)
+    const shootDelay = 120;      // ms entre disparos mínimos
+    let hitEffects = []; // Animaciones de explosión
+
     document.getElementById('game').style.display = 'none';
     document.getElementById('gameControls').style.display = 'none';
     document.getElementById('infoButton').style.display = 'none';
@@ -328,7 +341,6 @@
       // SOLO aquí abrimos la conexión WebSocket
       ws = new WebSocket('wss://gameserver-z6km.onrender.com/');
 
-      // El resto de la lógica de ws va aquí:
       ws.onopen = () => {
         console.log('Conectado al servidor WebSocket');
         searchingServer.style.display = 'flex';
@@ -350,9 +362,11 @@
         if(data.type === 'init') {
           myId = data.id;
           players = data.players;
+          bullets = data.bullets || [];
           searchingServer.style.display = 'none';
         } else if(data.type === 'update') {
           players = data.players;
+          bullets = data.bullets || [];
         } else if (data.type === 'say') {
           if (players[data.id]) {
             players[data.id].message = data.message;
@@ -412,13 +426,13 @@
     // Referencia al mensaje buscando servidor
     const searchingServer = document.getElementById('searchingServer');
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        drawWatermark();
-        drawGrid();
+    drawWatermark();
+    drawGrid();
 
-        for(let id in players) {
+    for(let id in players) {
         if(!smoothPlayers[id]) smoothPlayers[id] = { ...players[id] };
         else {
             smoothPlayers[id].x += (players[id].x - smoothPlayers[id].x) * 0.2;
@@ -428,40 +442,57 @@
         const p = smoothPlayers[id];
         const name = players[id].name || id.substring(0,4);
         const msg = players[id].message;
+        const hp = players[id].hp !== undefined ? players[id].hp : 100;
 
         if (msg) {
-          ctx.font = '13px monospace';
-          ctx.fillStyle = 'white';
-          ctx.textAlign = 'center';
-          ctx.fillText(msg, p.x + 12, p.y - 10);
+            ctx.font = '13px monospace';
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.fillText(msg, p.x + 12, p.y - 10);
         }
 
         ctx.fillStyle = id === myId ? '#00ffff' : '#ff00aa';
         let baseName = (players[id].name || "").toLowerCase();
-        if (baseName === "alexis") {
-          ctx.fillStyle = '#00ff00'; // Verde
-        } else if (baseName === "edwin") {
-          ctx.fillStyle = '#0000ff'; // Azul
+        if (baseName === "el3dwin") {
+            ctx.fillStyle = '#00ff00'; // Verde
+        } else if (baseName === "alexixd") {
+            ctx.fillStyle = '#0000ff'; // Azul
         } else {
-          ctx.fillStyle = id === myId ? '#00ffff' : '#ff00aa';
+            ctx.fillStyle = id === myId ? '#00ffff' : '#ff00aa';
         }
 
         ctx.shadowColor = ctx.fillStyle;
         ctx.shadowBlur = 15;
         ctx.fillRect(p.x, p.y, 24, 24);
+
         // Lentes si el nombre es "edwin" o "alexis"
-        if (["edwin", "alexis"].includes(name.toLowerCase())) {
-          const glassesY = p.y + 6;
-          const glassesX = p.x + 3;
-
-          // Dibujar dos rectángulos como lentes
-          ctx.fillStyle = '#000';
-          ctx.fillRect(glassesX, glassesY, 7, 5);        // Lente izquierdo
-          ctx.fillRect(glassesX + 11, glassesY, 7, 5);   // Lente derecho
-
-          // Dibujar el puente de las gafas
-          ctx.fillRect(glassesX + 7, glassesY + 2, 4, 1);
+        if (["el3dwin", "alexixd"].includes(name.toLowerCase())) {
+            const glassesY = p.y + 6;
+            const glassesX = p.x + 3;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(glassesX, glassesY, 7, 5);
+            ctx.fillRect(glassesX + 11, glassesY, 7, 5);
+            ctx.fillRect(glassesX + 7, glassesY + 2, 4, 1);
         }
+
+        // --- BARRA DE VIDA ---
+        ctx.save();
+        const barW = 4, barH = 22;
+        const barX = p.x - 10;
+        const barY = p.y + 1;
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = '#ff00aa';
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.globalAlpha = 1;
+        // Barra de vida (de abajo hacia arriba)
+        const hpFrac = Math.max(0, Math.min(hp / 100, 1));
+        ctx.fillStyle = '#ff00aa';
+        ctx.fillRect(barX, barY + barH - barH * hpFrac, barW, barH * hpFrac);
+        // Borde
+        ctx.strokeStyle = '#ff00aa';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(barX, barY, barW, barH);
+        ctx.restore();
 
         ctx.shadowBlur = 8;
         ctx.fillStyle = '#00ffff';
@@ -469,12 +500,176 @@
         ctx.textAlign = 'center';
         ctx.fillText(name, p.x + 12, p.y + 40);
         ctx.shadowBlur = 0;
-        }
-
-        requestAnimationFrame(draw);
     }
 
-    draw();
+    if (myId && smoothPlayers[myId]) {
+        const player = smoothPlayers[myId];
+
+        // Línea de apuntado (mitad de largo)
+        ctx.save();
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(player.x + 12, player.y + 12);
+        ctx.lineTo(player.x + 12 + aim.x * 0.75, player.y + 12 + aim.y * 0.75);
+        ctx.stroke();
+        ctx.restore();
+
+        // Barra de calor vertical, más chica y a la derecha
+        const barW = 4, barH = 22;
+        const barX = player.x + 28; // justo a la derecha del jugador
+        const barY = player.y + 12 - barH/2;
+        ctx.save();
+        // Fondo barra
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = '#222';
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.globalAlpha = 1;
+        // Barra de calor animada (vertical, de abajo hacia arriba)
+        const heatFrac = Math.min(heat / maxHeat, 1);
+        const grad = ctx.createLinearGradient(barX, barY + barH, barX, barY);
+        grad.addColorStop(0, '#00ffff');
+        grad.addColorStop(0.5, '#ffff00');
+        grad.addColorStop(1, '#ff0000');
+        ctx.fillStyle = grad;
+        ctx.fillRect(barX, barY + barH - barH * heatFrac, barW, barH * heatFrac);
+
+        // Borde
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barW, barH);
+
+        // Si está sobrecalentado, muestra advertencia
+        if (!canShoot && heat >= maxHeat) {
+            ctx.font = 'bold 11px monospace';
+            ctx.fillStyle = '#ff0000';
+            ctx.textAlign = 'left';
+            ctx.fillText('¡HOT!', barX + barW + 4, barY + barH/2 + 4);
+        }
+        ctx.restore();
+    }
+
+    // --- DIBUJAR BALAS (de servidor) ---
+    for (let i = 0; i < bullets.length; i++) {
+        const b = bullets[i];
+        // Dibujo neón animado
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 24 + Math.sin(performance.now()/80 + i) * 8;
+        ctx.globalAlpha = 0.7 + 0.2 * Math.sin(performance.now()/120 + i);
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 8, 0, 2 * Math.PI);
+        ctx.fillStyle = '#00ffff';
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 6 + Math.sin(performance.now()/100 + i)*1.5);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.5, '#00ffff');
+        grad.addColorStop(1, 'rgba(0,255,255,0)');
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 6 + Math.sin(performance.now()/100 + i)*1.5, 0, 2 * Math.PI);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // --- ANIMACIÓN DE EXPLOSIÓN ---
+    for (let i = hitEffects.length - 1; i >= 0; i--) {
+        const eff = hitEffects[i];
+        const maxFrames = 18;
+        const progress = eff.frame / maxFrames;
+        const radius = 12 + 24 * progress;
+        const alpha = 1 - progress;
+
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.7;
+        const grad = ctx.createRadialGradient(eff.x, eff.y, 0, eff.x, eff.y, radius);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.2, '#00ffff');
+        grad.addColorStop(0.5, '#00ffff88');
+        grad.addColorStop(1, 'rgba(0,255,255,0)');
+        ctx.beginPath();
+        ctx.arc(eff.x, eff.y, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+
+        eff.frame++;
+        if (eff.frame > maxFrames) hitEffects.splice(i, 1);
+    }
+
+    // --- SOBRECALENTAMIENTO Y ENFRIAMIENTO ---
+    if (heat > 0) {
+        heat -= heatCooldown;
+        if (heat < 0) heat = 0;
+    }
+    if (heat < maxHeat) canShoot = true;
+
+    // Feedback visual de cursor
+    if (!canShoot && heat >= maxHeat) {
+        canvas.style.cursor = 'not-allowed';
+    } else {
+        canvas.style.cursor = 'crosshair';
+    }
+
+    requestAnimationFrame(draw);
+}
+
+draw();
+
+    canvas.addEventListener('mousemove', function(e) {
+        if (!myId || !smoothPlayers[myId]) return;
+        const rect = canvas.getBoundingClientRect();
+        const player = smoothPlayers[myId];
+        const px = player.x + 12;
+        const py = player.y + 12;
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        let dx = mx - px;
+        let dy = my - py;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > aimMaxDist) {
+            dx = dx * aimMaxDist / dist;
+            dy = dy * aimMaxDist / dist;
+        }
+        aim.x = dx;
+        aim.y = dy;
+    });
+
+    let bulletSpeed = 2.5; // Ajusta este valor para la velocidad de las balas (más bajo = más lento)
+
+    canvas.addEventListener('mousedown', function(e) {
+        if (!myId || !smoothPlayers[myId]) return;
+        const now = Date.now();
+        if (!canShoot || now - lastShot < shootDelay) return;
+        if (heat + heatPerShot > maxHeat) {
+            canShoot = false;
+            return;
+        }
+        lastShot = now;
+        heat += heatPerShot;
+        if (heat >= maxHeat) {
+            heat = maxHeat;
+            canShoot = false;
+        }
+        const player = smoothPlayers[myId];
+        const len = Math.sqrt(aim.x*aim.x + aim.y*aim.y) || 1;
+        const dirX = aim.x / len;
+        const dirY = aim.y / len;
+        // Enviar bala al servidor
+        ws.send(JSON.stringify({
+            type: 'shoot',
+            bullet: {
+                x: player.x + 12 + dirX * 18,
+                y: player.y + 12 + dirY * 18,
+                dx: dirX * bulletSpeed,
+                dy: dirY * bulletSpeed
+            }
+        }));
+    });
 
     window.addEventListener('keydown', (e) => {
     let dx = 0, dy = 0;
