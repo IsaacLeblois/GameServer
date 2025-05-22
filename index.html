@@ -243,10 +243,10 @@
     letter-spacing: 1.2px;
     font-weight: 600;
     ">
-    <div id="ctrlUp">⬆ Arriba</div>
-    <div id="ctrlDown">⬇ Abajo</div>
-    <div id="ctrlLeft">⬅ Izquierda</div>
-    <div id="ctrlRight">➡ Derecha</div>
+    <div id="ctrlUp">W Arriba</div>
+    <div id="ctrlDown">S Abajo</div>
+    <div id="ctrlLeft">A Izquierda</div>
+    <div id="ctrlRight">D Derecha</div>
     <div id="tKey">T Chat</div>
     </div>
 
@@ -679,20 +679,20 @@ draw();
     let dx = 0, dy = 0;
     let controlId = null;
 
-    if(e.key === 'ArrowUp') {
-        dy = -5;
+    if(e.key === 'w') {
+        dy = -10;
         controlId = 'ctrlUp';
     }
-    else if(e.key === 'ArrowDown') {
-        dy = 5;
+    else if(e.key === 's') {
+        dy = 10;
         controlId = 'ctrlDown';
     }
-    else if(e.key === 'ArrowLeft') {
-        dx = -5;
+    else if(e.key === 'a') {
+        dx = -10;
         controlId = 'ctrlLeft';
     }
-    else if(e.key === 'ArrowRight') {
-        dx = 5;
+    else if(e.key === 'd') {
+        dx = 10;
         controlId = 'ctrlRight';
     }
     else if ((e.key === 't' || e.key === 'T')) {
