@@ -552,22 +552,26 @@ function draw() {
     // --- DIBUJAR BALAS (de servidor) ---
     for (let i = 0; i < bullets.length; i++) {
         const b = bullets[i];
-        // Dibujo neón animado
         ctx.save();
-        ctx.shadowColor = '#00ffff';
+
+        // sombra blanca neón
+        ctx.shadowColor = '#fff';
         ctx.shadowBlur = 24 + Math.sin(performance.now()/80 + i) * 8;
         ctx.globalAlpha = 0.7 + 0.2 * Math.sin(performance.now()/120 + i);
+
         ctx.beginPath();
         ctx.arc(b.x, b.y, 8, 0, 2 * Math.PI);
-        ctx.fillStyle = '#00ffff';
+        ctx.fillStyle = '#fff';  // blanco sólido para toda la bala
         ctx.fill();
 
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
+
+        // El gradiente ahora también será blanco sólido para evitar colores cian
         const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 6 + Math.sin(performance.now()/100 + i)*1.5);
         grad.addColorStop(0, '#fff');
-        grad.addColorStop(0.5, '#00ffff');
-        grad.addColorStop(1, 'rgba(0,255,255,0)');
+        grad.addColorStop(0.5, '#fff');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.beginPath();
         ctx.arc(b.x, b.y, 6 + Math.sin(performance.now()/100 + i)*1.5, 0, 2 * Math.PI);
         ctx.fillStyle = grad;
