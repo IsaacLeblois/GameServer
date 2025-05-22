@@ -406,9 +406,31 @@
         }
 
         ctx.fillStyle = id === myId ? '#00ffff' : '#ff00aa';
+        let baseName = (players[id].name || "").toLowerCase();
+        if (baseName === "alexis") {
+          ctx.fillStyle = '#00ff00'; // Verde
+        } else if (baseName === "edwin") {
+          ctx.fillStyle = '#0000ff'; // Azul
+        } else {
+          ctx.fillStyle = id === myId ? '#00ffff' : '#ff00aa';
+        }
+
         ctx.shadowColor = ctx.fillStyle;
         ctx.shadowBlur = 15;
         ctx.fillRect(p.x, p.y, 24, 24);
+        // Lentes si el nombre es "edwin" o "alexis"
+        if (["edwin", "alexis"].includes(name.toLowerCase())) {
+          const glassesY = p.y + 6;
+          const glassesX = p.x + 3;
+
+          // Dibujar dos rectángulos como lentes
+          ctx.fillStyle = '#000';
+          ctx.fillRect(glassesX, glassesY, 7, 5);        // Lente izquierdo
+          ctx.fillRect(glassesX + 11, glassesY, 7, 5);   // Lente derecho
+
+          // Dibujar el puente de las gafas
+          ctx.fillRect(glassesX + 7, glassesY + 2, 4, 1);
+        }
 
         ctx.shadowBlur = 8;
         ctx.fillStyle = '#00ffff';
